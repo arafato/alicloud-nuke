@@ -1,0 +1,18 @@
+# Alibaba Cloud regions to exclude from scanning
+# All other available regions will be scanned
+regions:
+  excludes:
+    - cn-hongkong      # Skip Hong Kong region
+    # - ap-southeast-1   # Skip Singapore region
+    # - us-west-1        # Skip US West region
+
+# Resource types to exclude from deletion
+resource-types:
+  excludes:
+    # - ECSInstance
+
+# Specific resource IDs to exclude from deletion
+resource-ids:
+  excludes:
+    # - resourceType: ECSInstance
+    #   id: i-bp1234567890abcdef
