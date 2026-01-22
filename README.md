@@ -24,17 +24,85 @@ A command-line tool to delete all resources from an Alibaba Cloud account.
 
 ## Supported Resources
 
-| Resource Type | Product | Description |
-|---------------|---------|-------------|
-| `ECSInstance` | Elastic Compute Service | Virtual machine instances |
-| `SecurityGroup` | Elastic Compute Service | Security groups for network access control |
-| `NetworkInterface` | Elastic Compute Service | Elastic Network Interfaces (ENI), excludes primary ENIs |
-| `VPC` | Virtual Private Cloud | Virtual private networks |
-| `VSwitch` | Virtual Private Cloud | Subnets within VPCs |
-| `RouteTable` | Virtual Private Cloud | Custom route tables (system route tables are automatically excluded) |
-| `RouterInterface` | Virtual Private Cloud | Router interfaces for VPC peering connections |
-| `NASFileSystem` | Network Attached Storage | NAS file systems |
-| `NASMountTarget` | Network Attached Storage | NAS mount targets |
+### Elastic Compute Service (ECS)
+
+| Resource Type | Description |
+|---------------|-------------|
+| `ECSInstance` | Virtual machine instances |
+| `Disk` | Cloud disks (excludes system disks and attached disks) |
+| `Snapshot` | Disk snapshots |
+| `Image` | Custom images (excludes public/marketplace images) |
+| `SecurityGroup` | Security groups for network access control |
+| `NetworkInterface` | Elastic Network Interfaces (ENI), excludes primary ENIs |
+| `KeyPair` | SSH key pairs |
+| `LaunchTemplate` | Launch templates for instance creation |
+| `AutoSnapshotPolicy` | Automatic snapshot policies |
+| `Command` | Cloud Assistant commands (user-created only) |
+| `DeploymentSet` | Deployment sets for distributed instances |
+
+### Virtual Private Cloud (VPC)
+
+| Resource Type | Description |
+|---------------|-------------|
+| `VPC` | Virtual private networks |
+| `VSwitch` | Subnets within VPCs |
+| `RouteTable` | Custom route tables (system route tables are automatically excluded) |
+| `RouterInterface` | Router interfaces for VPC peering connections |
+| `NatGateway` | NAT Gateways for internet access |
+| `EIP` | Elastic IP addresses |
+| `CommonBandwidthPackage` | Shared bandwidth packages |
+| `ForwardEntry` | DNAT entries for NAT Gateways |
+| `SnatEntry` | SNAT entries for NAT Gateways |
+| `HaVip` | High Availability Virtual IPs |
+| `FlowLog` | VPC flow logs |
+| `VpnGateway` | VPN Gateways |
+| `VpnConnection` | IPsec VPN connections |
+| `CustomerGateway` | Customer gateways for VPN |
+| `SslVpnServer` | SSL VPN servers |
+| `SslVpnClientCert` | SSL VPN client certificates |
+
+### Network Attached Storage (NAS)
+
+| Resource Type | Description |
+|---------------|-------------|
+| `NASFileSystem` | NAS file systems |
+| `NASMountTarget` | NAS mount targets |
+
+### Auto Scaling (ESS)
+
+| Resource Type | Description |
+|---------------|-------------|
+| `ScalingGroup` | Auto Scaling groups |
+| `ScalingConfiguration` | Auto Scaling configurations |
+
+### Container Services
+
+| Resource Type | Description |
+|---------------|-------------|
+| `ContainerRegistryRepo` | Container Registry repositories |
+
+### Load Balancing
+
+| Resource Type | Description |
+|---------------|-------------|
+| `SLB` | Classic Load Balancer instances |
+| `ALB` | Application Load Balancer instances |
+| `NLB` | Network Load Balancer instances |
+
+### Databases
+
+| Resource Type | Description |
+|---------------|-------------|
+| `RDSInstance` | RDS database instances (MySQL, PostgreSQL, SQL Server, MariaDB) |
+| `RedisInstance` | Redis (KVStore) instances |
+| `MongoDBInstance` | MongoDB (ApsaraDB for MongoDB) instances |
+| `PolarDBCluster` | PolarDB clusters (MySQL, PostgreSQL, Oracle compatible) |
+
+### Object Storage
+
+| Resource Type | Description |
+|---------------|-------------|
+| `OSSBucket` | OSS buckets (including all objects and versions) |
 
 ## Usage
 
@@ -152,15 +220,54 @@ Exclude entire resource types from deletion.
 ```yaml
 resource-types:
   excludes:
+    # ECS Resources
     - ECSInstance
+    - Disk
+    - Snapshot
+    - Image
     - SecurityGroup
     - NetworkInterface
+    - KeyPair
+    - LaunchTemplate
+    - AutoSnapshotPolicy
+    - Command
+    - DeploymentSet
+    # VPC Resources
     - VPC
     - VSwitch
     - RouteTable
     - RouterInterface
+    - NatGateway
+    - EIP
+    - CommonBandwidthPackage
+    - ForwardEntry
+    - SnatEntry
+    - HaVip
+    - FlowLog
+    - VpnGateway
+    - VpnConnection
+    - CustomerGateway
+    - SslVpnServer
+    - SslVpnClientCert
+    # NAS Resources
     - NASFileSystem
     - NASMountTarget
+    # Auto Scaling Resources
+    - ScalingGroup
+    - ScalingConfiguration
+    # Container Resources
+    - ContainerRegistryRepo
+    # Load Balancer Resources
+    - SLB
+    - ALB
+    - NLB
+    # Database Resources
+    - RDSInstance
+    - RedisInstance
+    - MongoDBInstance
+    - PolarDBCluster
+    # Object Storage Resources
+    - OSSBucket
 ```
 
 #### `resource-ids`
@@ -220,13 +327,41 @@ When deleting resources, dependencies matter. The tool uses a **wave-based retry
 
 | Delete First | Then Delete |
 |--------------|-------------|
+| ECS Instances | Disks, Security Groups, VSwitches, Network Interfaces, Key Pairs |
+| Snapshots | (should be deleted before Images that depend on them) |
+| Images | (can be deleted independently) |
+| Disks | (unattached disks can be deleted independently) |
+| SSL VPN Client Certs | SSL VPN Servers |
+| SSL VPN Servers | VPN Gateways |
+| VPN Connections | VPN Gateways, Customer Gateways |
+| VPN Gateways | VPCs |
+| Forward Entries (DNAT) | NAT Gateways |
+| SNAT Entries | NAT Gateways |
+| NAT Gateways | VSwitches, EIPs |
+| EIPs | (can be deleted independently after unassociation) |
 | NAS Mount Targets | NAS File Systems |
 | NAS File Systems | VSwitches |
-| ECS Instances | Security Groups, VSwitches, Network Interfaces |
 | Network Interfaces (ENI) | VSwitches |
 | Security Groups | VPCs |
 | VSwitches | VPCs |
 | Custom Route Tables | VPCs |
 | Router Interfaces | VPCs |
+| HA VIPs | VSwitches |
+| Launch Templates | (can be deleted independently) |
+| Auto Snapshot Policies | (can be deleted independently) |
+| Commands | (can be deleted independently) |
+| Deployment Sets | (must delete instances first) |
+| Flow Logs | (can be deleted independently) |
+| Scaling Configurations | Scaling Groups |
+| Scaling Groups | VPCs, VSwitches |
+| Container Registry Repos | (can be deleted independently) |
+| SLB (Classic Load Balancer) | VPCs, VSwitches |
+| ALB (Application Load Balancer) | VPCs, VSwitches |
+| NLB (Network Load Balancer) | VPCs, VSwitches |
+| RDS Instances | VPCs, VSwitches, Security Groups |
+| Redis Instances | VPCs, VSwitches |
+| MongoDB Instances | VPCs, VSwitches |
+| PolarDB Clusters | VPCs, VSwitches |
+| OSS Buckets | (can be deleted independently, objects deleted first) |
 
 > **Note:** System route tables (created automatically with VPCs) are excluded from deletion as they are managed by Alibaba Cloud and deleted when the parent VPC is removed.
