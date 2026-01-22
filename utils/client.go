@@ -34,10 +34,13 @@ func CreateVPCClient(creds *types.Credentials, region string) (*vpc.Client, erro
 
 // CreateNASClient creates a NAS client for a specific region
 func CreateNASClient(creds *types.Credentials, region string) (*nas.Client, error) {
+	// NAS requires a region-specific endpoint
+	endpoint := "nas." + region + ".aliyuncs.com"
 	config := &openapi.Config{
 		AccessKeyId:     tea.String(creds.AccessKeyID),
 		AccessKeySecret: tea.String(creds.AccessKeySecret),
 		RegionId:        tea.String(region),
+		Endpoint:        tea.String(endpoint),
 	}
 
 	return nas.NewClient(config)
