@@ -28,9 +28,11 @@ A command-line tool to delete all resources from an Alibaba Cloud account.
 |---------------|---------|-------------|
 | `ECSInstance` | Elastic Compute Service | Virtual machine instances |
 | `SecurityGroup` | Elastic Compute Service | Security groups for network access control |
+| `NetworkInterface` | Elastic Compute Service | Elastic Network Interfaces (ENI), excludes primary ENIs |
 | `VPC` | Virtual Private Cloud | Virtual private networks |
 | `VSwitch` | Virtual Private Cloud | Subnets within VPCs |
 | `RouteTable` | Virtual Private Cloud | Custom route tables (system route tables are automatically excluded) |
+| `RouterInterface` | Virtual Private Cloud | Router interfaces for VPC peering connections |
 | `NASFileSystem` | Network Attached Storage | NAS file systems |
 | `NASMountTarget` | Network Attached Storage | NAS mount targets |
 
@@ -152,9 +154,11 @@ resource-types:
   excludes:
     - ECSInstance
     - SecurityGroup
+    - NetworkInterface
     - VPC
     - VSwitch
     - RouteTable
+    - RouterInterface
     - NASFileSystem
     - NASMountTarget
 ```
@@ -218,9 +222,11 @@ When deleting resources, dependencies matter. The tool uses a **wave-based retry
 |--------------|-------------|
 | NAS Mount Targets | NAS File Systems |
 | NAS File Systems | VSwitches |
-| ECS Instances | Security Groups, VSwitches |
+| ECS Instances | Security Groups, VSwitches, Network Interfaces |
+| Network Interfaces (ENI) | VSwitches |
 | Security Groups | VPCs |
 | VSwitches | VPCs |
 | Custom Route Tables | VPCs |
+| Router Interfaces | VPCs |
 
 > **Note:** System route tables (created automatically with VPCs) are excluded from deletion as they are managed by Alibaba Cloud and deleted when the parent VPC is removed.
