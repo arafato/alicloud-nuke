@@ -7,9 +7,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
 
 	"github.com/arafato/ali-nuke/types"
+)
+
+var (
+	colorRed       = color.New(color.FgRed).SprintFunc()
+	colorGreen     = color.New(color.FgGreen).SprintFunc()
+	colorLightBlue = color.New(color.FgHiCyan).SprintFunc()
 )
 
 func PrintStatusWithContext(wg *sync.WaitGroup, ctx context.Context, resources types.Resources) {
@@ -28,6 +35,20 @@ func PrintStatusWithContext(wg *sync.WaitGroup, ctx context.Context, resources t
 	}
 }
 
+// colorizeStatus returns a colored status string based on the resource state
+func colorizeStatus(state types.ResourceState) string {
+	switch state {
+	case types.Deleted:
+		return colorGreen("Deleted")
+	case types.Failed:
+		return colorRed("Failed")
+	case types.Removing, types.PendingRetry:
+		return colorLightBlue("Removing")
+	default:
+		return state.String()
+	}
+}
+
 func PrettyPrintStatus(resources types.Resources) {
 	data := [][]string{{"Region", "Product", "ID/Name", "Status"}}
 	for _, resource := range resources {
@@ -35,12 +56,7 @@ func PrettyPrintStatus(resources types.Resources) {
 			continue
 		}
 
-		// Show PendingRetry as "Removing" to user
-		status := resource.State().String()
-		if resource.State() == types.PendingRetry {
-			status = "Removing"
-		}
-
+		status := colorizeStatus(resource.State())
 		data = append(data, []string{resource.Region, resource.ProductName, resource.ResourceName, status})
 	}
 
