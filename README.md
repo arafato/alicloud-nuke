@@ -27,8 +27,12 @@ A command-line tool to delete all resources from an Alibaba Cloud account.
 | Resource Type | Product | Description |
 |---------------|---------|-------------|
 | `ECSInstance` | Elastic Compute Service | Virtual machine instances |
+| `SecurityGroup` | Elastic Compute Service | Security groups for network access control |
 | `VPC` | Virtual Private Cloud | Virtual private networks |
 | `VSwitch` | Virtual Private Cloud | Subnets within VPCs |
+| `RouteTable` | Virtual Private Cloud | Custom route tables (system route tables are automatically excluded) |
+| `NASFileSystem` | Network Attached Storage | NAS file systems |
+| `NASMountTarget` | Network Attached Storage | NAS mount targets |
 
 ## Usage
 
@@ -109,6 +113,7 @@ resource-types:
   excludes:
     - VPC              # Don't delete any VPCs
     - ECSInstance      # Don't delete any ECS instances
+    - NASFileSystem    # Don't delete any NAS file systems
 
 # Specific resource IDs or names to exclude from deletion
 resource-ids:
@@ -119,6 +124,8 @@ resource-ids:
       id: i-bp1234567890abcdef  # Exclude by instance ID
     - resourceType: VSwitch
       id: production-subnet     # Exclude by resource name
+    - resourceType: SecurityGroup
+      id: sg-production         # Exclude by security group name
 ```
 
 ### Configuration Sections
@@ -144,8 +151,12 @@ Exclude entire resource types from deletion.
 resource-types:
   excludes:
     - ECSInstance
+    - SecurityGroup
     - VPC
     - VSwitch
+    - RouteTable
+    - NASFileSystem
+    - NASMountTarget
 ```
 
 #### `resource-ids`
@@ -194,8 +205,22 @@ The tool automatically discovers all available Alibaba Cloud regions using the `
 
 ## Resource Deletion Order
 
-When deleting resources, dependencies matter. For example:
-- VSwitches must be deleted before their parent VPCs
-- ECS instances must be deleted before their associated VSwitches
+When deleting resources, dependencies matter. The tool uses a **wave-based retry system** to handle resource dependencies automatically:
 
-The tool handles these dependencies by attempting deletion in parallel and retrying failed resources.
+1. **Wave 1**: All resources are deleted in parallel
+2. Resources that fail with dependency errors (e.g., `DependencyViolation`) are marked for retry
+3. **Wave 2+**: After a 10-second interval, failed resources are retried
+4. This continues until all resources are deleted or a 10-minute timeout is reached
+
+### Common Dependency Chains
+
+| Delete First | Then Delete |
+|--------------|-------------|
+| NAS Mount Targets | NAS File Systems |
+| NAS File Systems | VSwitches |
+| ECS Instances | Security Groups, VSwitches |
+| Security Groups | VPCs |
+| VSwitches | VPCs |
+| Custom Route Tables | VPCs |
+
+> **Note:** System route tables (created automatically with VPCs) are excluded from deletion as they are managed by Alibaba Cloud and deleted when the parent VPC is removed.
