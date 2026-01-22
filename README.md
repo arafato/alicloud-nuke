@@ -19,8 +19,6 @@ A command-line tool to delete all resources from an Alibaba Cloud account.
 - [Authentication](#authentication)
   - [Creating an Access Key](#creating-an-access-key)
 - [Resource Deletion Order](#resource-deletion-order)
-- [Exit Codes](#exit-codes)
-- [License](#license)
 
 ## Supported Resources
 
@@ -322,46 +320,5 @@ When deleting resources, dependencies matter. The tool uses a **wave-based retry
 2. Resources that fail with dependency errors (e.g., `DependencyViolation`) are marked for retry
 3. **Wave 2+**: After a 10-second interval, failed resources are retried
 4. This continues until all resources are deleted or a 10-minute timeout is reached
-
-### Common Dependency Chains
-
-| Delete First | Then Delete |
-|--------------|-------------|
-| ECS Instances | Disks, Security Groups, VSwitches, Network Interfaces, Key Pairs |
-| Snapshots | (should be deleted before Images that depend on them) |
-| Images | (can be deleted independently) |
-| Disks | (unattached disks can be deleted independently) |
-| SSL VPN Client Certs | SSL VPN Servers |
-| SSL VPN Servers | VPN Gateways |
-| VPN Connections | VPN Gateways, Customer Gateways |
-| VPN Gateways | VPCs |
-| Forward Entries (DNAT) | NAT Gateways |
-| SNAT Entries | NAT Gateways |
-| NAT Gateways | VSwitches, EIPs |
-| EIPs | (can be deleted independently after unassociation) |
-| NAS Mount Targets | NAS File Systems |
-| NAS File Systems | VSwitches |
-| Network Interfaces (ENI) | VSwitches |
-| Security Groups | VPCs |
-| VSwitches | VPCs |
-| Custom Route Tables | VPCs |
-| Router Interfaces | VPCs |
-| HA VIPs | VSwitches |
-| Launch Templates | (can be deleted independently) |
-| Auto Snapshot Policies | (can be deleted independently) |
-| Commands | (can be deleted independently) |
-| Deployment Sets | (must delete instances first) |
-| Flow Logs | (can be deleted independently) |
-| Scaling Configurations | Scaling Groups |
-| Scaling Groups | VPCs, VSwitches |
-| Container Registry Repos | (can be deleted independently) |
-| SLB (Classic Load Balancer) | VPCs, VSwitches |
-| ALB (Application Load Balancer) | VPCs, VSwitches |
-| NLB (Network Load Balancer) | VPCs, VSwitches |
-| RDS Instances | VPCs, VSwitches, Security Groups |
-| Redis Instances | VPCs, VSwitches |
-| MongoDB Instances | VPCs, VSwitches |
-| PolarDB Clusters | VPCs, VSwitches |
-| OSS Buckets | (can be deleted independently, objects deleted first) |
 
 > **Note:** System route tables (created automatically with VPCs) are excluded from deletion as they are managed by Alibaba Cloud and deleted when the parent VPC is removed.
