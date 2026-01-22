@@ -3,6 +3,7 @@ package utils
 import (
 	openapi "github.com/alibabacloud-go/darabonba-openapi/v2/client"
 	ecs "github.com/alibabacloud-go/ecs-20140526/v7/client"
+	nas "github.com/alibabacloud-go/nas-20170626/v3/client"
 	"github.com/alibabacloud-go/tea/tea"
 	vpc "github.com/alibabacloud-go/vpc-20160428/v6/client"
 
@@ -29,4 +30,15 @@ func CreateVPCClient(creds *types.Credentials, region string) (*vpc.Client, erro
 	}
 
 	return vpc.NewClient(config)
+}
+
+// CreateNASClient creates a NAS client for a specific region
+func CreateNASClient(creds *types.Credentials, region string) (*nas.Client, error) {
+	config := &openapi.Config{
+		AccessKeyId:     tea.String(creds.AccessKeyID),
+		AccessKeySecret: tea.String(creds.AccessKeySecret),
+		RegionId:        tea.String(region),
+	}
+
+	return nas.NewClient(config)
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/arafato/ali-nuke/config"
@@ -135,7 +136,22 @@ func executeNuke() {
 	cancel()
 	wg.Wait()
 
-	fmt.Println("Process finished.")
+	// Print final summary
+	failedCount := resources.NumOf(types.Failed)
+	deletedCount := resources.NumOf(types.Deleted)
+
+	fmt.Println("\n" + strings.Repeat("=", 60))
+	fmt.Printf("Process finished. Deleted: %d, Failed: %d\n", deletedCount, failedCount)
+
+	if failedCount > 0 {
+		fmt.Println("\nFailed resources:")
+		for _, resource := range resources {
+			if resource.State() == types.Failed {
+				fmt.Printf("  - [%s] %s: %s (%s)\n", resource.Region, resource.ProductName, resource.ResourceName, resource.ResourceID)
+			}
+		}
+		fmt.Println("\nNote: Some resources may have failed due to dependencies. Run again to retry.")
+	}
 }
 
 func main() {

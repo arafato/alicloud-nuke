@@ -34,7 +34,14 @@ func PrettyPrintStatus(resources types.Resources) {
 		if resource.State() == types.Hidden {
 			continue
 		}
-		data = append(data, []string{resource.Region, resource.ProductName, resource.ResourceName, resource.State().String()})
+
+		// Show PendingRetry as "Removing" to user
+		status := resource.State().String()
+		if resource.State() == types.PendingRetry {
+			status = "Removing"
+		}
+
+		data = append(data, []string{resource.Region, resource.ProductName, resource.ResourceName, status})
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
@@ -43,7 +50,9 @@ func PrettyPrintStatus(resources types.Resources) {
 	table.Render()
 
 	visibleCount := resources.VisibleCount()
+	// Count PendingRetry as "In-Progress" for display
+	inProgress := resources.NumOf(types.Removing) + resources.NumOf(types.PendingRetry)
 	fmt.Printf("\nStatus: %d resources in total. Removed %d, In-Progress %d, Filtered %d, Failed %d\n",
-		visibleCount, resources.NumOf(types.Deleted), resources.NumOf(types.Removing),
+		visibleCount, resources.NumOf(types.Deleted), inProgress,
 		resources.NumOf(types.Filtered), resources.NumOf(types.Failed))
 }

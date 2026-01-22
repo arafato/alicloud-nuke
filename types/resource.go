@@ -2,9 +2,9 @@ package types
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/cenkalti/backoff/v5"
 )
@@ -39,6 +39,7 @@ const (
 	Failed
 	Filtered
 	Hidden
+	PendingRetry // Failed with retriable error, will be retried in next wave
 )
 
 // State returns the current state of the resource (thread-safe)
@@ -51,27 +52,92 @@ func (r *Resource) SetState(s ResourceState) {
 	r.state.Store(int32(s))
 }
 
+// isPermanentError returns true for errors that should not be retried
+func isPermanentError(errStr string) bool {
+	permanentErrors := []string{
+		"403",
+		"Forbidden",
+		"InvalidAccessKeyId",
+		"InvalidResourceId.NotFound",
+		"InvalidInstanceId.NotFound",
+		"InvalidVpcId.NotFound",
+		"InvalidVSwitchId.NotFound",
+	}
+	for _, e := range permanentErrors {
+		if strings.Contains(errStr, e) {
+			return true
+		}
+	}
+	return false
+}
+
+// isRetriableError returns true for errors that can succeed after dependencies are resolved
+func isRetriableError(errStr string) bool {
+	retriableErrors := []string{
+		"DependencyViolation",
+		"IncorrectInstanceStatus",
+		"OperationConflict",
+		"ServiceUnavailable",
+		"Throttling",
+		"HasMountTarget", // NAS file system has mount targets
+	}
+	for _, e := range retriableErrors {
+		if strings.Contains(errStr, e) {
+			return true
+		}
+	}
+	return false
+}
+
+// Remove attempts to delete the resource with retries for transient errors.
+// Sets state to Deleted on success, Failed on permanent error, PendingRetry on retriable error.
 func (r *Resource) Remove(ctx context.Context) error {
+	r.SetState(Removing)
+
+	// Configure backoff for quick retries within a wave (handles transient network issues)
+	expBackoff := backoff.NewExponentialBackOff()
+	expBackoff.InitialInterval = 1 * time.Second
+	expBackoff.MaxInterval = 5 * time.Second
+
+	var lastErr error
 	operation := func() (struct{}, error) {
-		r.SetState(Removing)
 		err := r.Removable.Remove(r.Region, r.ResourceID, r.ResourceName)
 		if err != nil {
-			// Check for permanent errors that shouldn't be retried
+			lastErr = err
 			errStr := err.Error()
-			if strings.Contains(errStr, "403") ||
-				strings.Contains(errStr, "Forbidden") ||
-				strings.Contains(errStr, "InvalidAccessKeyId") {
-				return struct{}{}, backoff.Permanent(errors.New("unauthorized request: " + errStr))
+
+			// Permanent errors - stop retrying immediately
+			if isPermanentError(errStr) {
+				return struct{}{}, backoff.Permanent(err)
 			}
+
+			// Retriable errors - mark for wave-level retry, stop per-resource retry
+			if isRetriableError(errStr) {
+				return struct{}{}, backoff.Permanent(err)
+			}
+
+			// Other errors - retry with backoff
 			return struct{}{}, err
 		}
 		return struct{}{}, nil
 	}
 
-	_, err := backoff.Retry(ctx, operation, backoff.WithBackOff(backoff.NewExponentialBackOff()), backoff.WithMaxTries(3))
+	_, err := backoff.Retry(ctx, operation, backoff.WithBackOff(expBackoff), backoff.WithMaxTries(3))
 	if err != nil {
-		r.SetState(Failed)
-		return err
+		// Use lastErr if available for more accurate error message
+		errToCheck := err
+		if lastErr != nil {
+			errToCheck = lastErr
+		}
+		errStr := errToCheck.Error()
+
+		// Determine final state based on error type
+		if isRetriableError(errStr) {
+			r.SetState(PendingRetry)
+		} else {
+			r.SetState(Failed)
+		}
+		return errToCheck
 	}
 
 	r.SetState(Deleted)
