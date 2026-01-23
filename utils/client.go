@@ -2,6 +2,7 @@ package utils
 
 import (
 	alb "github.com/alibabacloud-go/alb-20200616/v2/client"
+	cbn "github.com/alibabacloud-go/cbn-20170912/v2/client"
 	cr "github.com/alibabacloud-go/cr-20181201/v2/client"
 	cs "github.com/alibabacloud-go/cs-20151215/v5/client"
 	openapi "github.com/alibabacloud-go/darabonba-openapi/v2/client"
@@ -166,4 +167,14 @@ func CreateCSClient(creds *types.Credentials, region string) (*cs.Client, error)
 		RegionId:        tea.String(region),
 	}
 	return cs.NewClient(config)
+}
+
+// CreateCENClient creates a Cloud Enterprise Network (CEN) client for a specific region
+func CreateCENClient(creds *types.Credentials, region string) (*cbn.Client, error) {
+	config := &openapi.Config{
+		AccessKeyId:     tea.String(creds.AccessKeyID),
+		AccessKeySecret: tea.String(creds.AccessKeySecret),
+		RegionId:        tea.String(region),
+	}
+	return cbn.NewClient(config)
 }
