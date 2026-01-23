@@ -78,6 +78,14 @@ A command-line tool to delete all resources from an Alibaba Cloud account.
 | Resource Type | Description |
 |---------------|-------------|
 | `ContainerRegistryRepo` | Container Registry repositories |
+| `ACKCluster` | Container Service for Kubernetes (ACK) clusters |
+
+### Cloud Enterprise Network (CEN)
+
+| Resource Type | Description |
+|---------------|-------------|
+| `CENInstance` | Cloud Enterprise Network instances (global resource) |
+| `TransitRouter` | Transit Routers for CEN instances |
 
 ### Load Balancing
 
@@ -254,6 +262,10 @@ resource-types:
     - ScalingConfiguration
     # Container Resources
     - ContainerRegistryRepo
+    - ACKCluster
+    # Cloud Enterprise Network Resources
+    - CENInstance
+    - TransitRouter
     # Load Balancer Resources
     - SLB
     - ALB
