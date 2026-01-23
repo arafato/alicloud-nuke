@@ -7,6 +7,9 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/briandowns/spinner"
 
 	"github.com/arafato/ali-nuke/config"
 	"github.com/arafato/ali-nuke/infrastructure"
@@ -86,20 +89,26 @@ func init() {
 
 	versionCmd.Flags().BoolVar(&shortVersion, "short", false, "Print short version string")
 
-	nukeCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to configuration file (required)")
+	nukeCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to configuration file. If not provided no exclude filters are set.")
 	nukeCmd.Flags().StringVar(&accessKeyID, "access-key-id", "", "Alibaba Cloud Access Key ID (required)")
 	nukeCmd.Flags().StringVar(&accessKeySecret, "access-key-secret", "", "Alibaba Cloud Access Key Secret (required)")
 	nukeCmd.Flags().BoolVar(&noDryRun, "no-dry-run", false, "Execute without dry run (actually delete resources)")
 
-	nukeCmd.MarkFlagRequired("config")
 	nukeCmd.MarkFlagRequired("access-key-id")
 	nukeCmd.MarkFlagRequired("access-key-secret")
 }
 
 func executeNuke() {
-	cfg, err := config.LoadConfig(configFile)
-	if err != nil {
-		log.Fatalf("Error loading configuration: %v", err)
+	var cfg *config.Config
+	if configFile == "" {
+		c := config.NewConfig()
+		cfg = &c
+	} else {
+		var err error
+		cfg, err = config.LoadConfig(configFile)
+		if err != nil {
+			log.Fatalf("Error loading configuration: %v", err)
+		}
 	}
 
 	creds := &types.Credentials{
@@ -113,15 +122,35 @@ func executeNuke() {
 	if err != nil {
 		log.Fatalf("Error fetching regions: %v", err)
 	}
-	fmt.Printf("Scanning %d regions (excluded %d)...\n", len(regions), len(cfg.Regions.Excludes))
 
-	resources := infrastructure.ProcessCollection(creds, regions)
+	// Initialize logger for collecting warnings/errors
+	logger := utils.NewScanLogger()
+
+	// Start spinner animation
+	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
+	s.Suffix = fmt.Sprintf(" Scanning %d regions (excluded %d)...", len(regions), len(cfg.Regions.Excludes))
+	s.Start()
+
+	scanStart := time.Now()
+	resources := infrastructure.ProcessCollection(creds, regions, logger)
 	infrastructure.FilterCollection(resources, cfg)
+	scanDuration := time.Since(scanStart)
+
+	// Stop spinner before printing results
+	s.Stop()
 
 	visibleCount := resources.VisibleCount()
-	fmt.Printf("Scan complete: Found %d resources in total. To be removed %d, Filtered %d\n",
-		visibleCount, resources.NumOf(types.Ready), resources.NumOf(types.Filtered))
+	fmt.Printf("Scan complete in %s: Found %d resources in total. To be removed %d, Filtered %d\n",
+		formatDuration(scanDuration), visibleCount, resources.NumOf(types.Ready), resources.NumOf(types.Filtered))
 	utils.PrettyPrintStatus(resources)
+
+	// Flush logs to file and print summary if there were warnings/errors
+	if logger.HasEntries() {
+		if err := logger.Flush(); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to write log file: %v\n", err)
+		}
+		logger.PrintSummary()
+	}
 
 	if !noDryRun {
 		fmt.Println("Dry run complete.")
@@ -168,6 +197,19 @@ func executeNuke() {
 		}
 		fmt.Println("\nNote: Some resources may have failed due to dependencies. Run again to retry.")
 	}
+}
+
+// formatDuration formats a duration in a human-readable way.
+// For durations < 60s, it shows seconds (e.g., "45s").
+// For durations >= 60s, it shows minutes and seconds (e.g., "1m42s").
+func formatDuration(d time.Duration) string {
+	d = d.Round(time.Second)
+	if d < time.Minute {
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	}
+	minutes := int(d.Minutes())
+	seconds := int(d.Seconds()) % 60
+	return fmt.Sprintf("%dm%ds", minutes, seconds)
 }
 
 func main() {
