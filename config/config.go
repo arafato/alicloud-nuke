@@ -40,3 +40,23 @@ func LoadConfig(path string) (*Config, error) {
 
 	return &config, nil
 }
+
+func NewConfig() Config {
+	return Config{
+		Regions: struct {
+			Excludes []string `yaml:"excludes"`
+		}{
+			Excludes: []string{},
+		},
+		ResourceTypes: struct {
+			Excludes []string `yaml:"excludes"`
+		}{
+			Excludes: []string{},
+		},
+		ResourceIDs: struct {
+			Excludes []ResourceIDFilter `yaml:"excludes"`
+		}{
+			Excludes: []ResourceIDFilter{},
+		},
+	}
+}
