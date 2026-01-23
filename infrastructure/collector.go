@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/arafato/ali-nuke/types"
+	"github.com/arafato/ali-nuke/utils"
 )
 
 var collectors = make(map[string]types.ResourceCollector)
@@ -31,10 +32,16 @@ func isServiceUnavailableError(err error) bool {
 	errStr := err.Error()
 	// "no such host" = DNS lookup failed, service endpoint doesn't exist in region
 	// "InvalidRegionId" = region not supported by the service
-	// "InvalidAccessKeyId.Inactive" in specific regions = service not activated
+	// "InvalidApi.NotFound" = API not available
+	// "UnauthorizedRegion" = region not authorized for the service
+	// "Forbidden." = permission denied for specific service features (e.g., Forbidden.HaVip)
+	// "network is unreachable" = region not accessible from current network (e.g., geo-blocked)
 	return strings.Contains(errStr, "no such host") ||
 		strings.Contains(errStr, "InvalidRegionId") ||
-		strings.Contains(errStr, "InvalidApi.NotFound")
+		strings.Contains(errStr, "InvalidApi.NotFound") ||
+		strings.Contains(errStr, "UnauthorizedRegion") ||
+		strings.Contains(errStr, "Forbidden.") ||
+		strings.Contains(errStr, "network is unreachable")
 }
 
 // isTransientError returns true if the error is a transient network error that can be retried
@@ -42,13 +49,23 @@ func isTransientError(err error) bool {
 	if err == nil {
 		return false
 	}
+	errStr := err.Error()
 	// EOF = connection dropped
 	// connection reset = server closed connection
 	// timeout = request timed out
+	// Note: Throttling errors are NOT retried here as they require longer backoffs
 	return err == io.EOF ||
-		strings.Contains(err.Error(), "EOF") ||
-		strings.Contains(err.Error(), "connection reset") ||
-		strings.Contains(err.Error(), "timeout")
+		strings.Contains(errStr, "EOF") ||
+		strings.Contains(errStr, "connection reset") ||
+		strings.Contains(errStr, "timeout")
+}
+
+// isThrottlingError returns true if the error is a rate limiting error
+func isThrottlingError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "Throttling")
 }
 
 // collectWithRetry attempts to collect resources with retries for transient errors
@@ -61,38 +78,48 @@ func collectWithRetry(collector types.ResourceCollector, creds *types.Credential
 		}
 		lastErr = err
 
-		// Don't retry non-transient errors
+		// Don't retry non-transient errors (including throttling, service unavailable, etc.)
 		if !isTransientError(err) {
 			return nil, err
 		}
 
 		// Wait before retry (exponential backoff: 1s, 2s, 4s)
 		if attempt < maxRetries {
-			time.Sleep(time.Duration(1<<attempt) * time.Second)
+			backoff := time.Duration(1<<attempt) * time.Second
+			time.Sleep(backoff)
 		}
 	}
 	return nil, lastErr
 }
 
 // ProcessCollection collects resources from all registered collectors across all specified regions
-func ProcessCollection(creds *types.Credentials, regions []string) types.Resources {
+func ProcessCollection(creds *types.Credentials, regions []string, logger *utils.ScanLogger) types.Resources {
 	var resourceCollectionChan = make(chan *types.Resource, 100)
 	var allResources types.Resources
 	g := new(errgroup.Group)
+	// Limit concurrent API calls to avoid rate limiting
+	g.SetLimit(20)
 
-	for _, collector := range collectors {
+	for collectorName, collector := range collectors {
 		for _, region := range regions {
 			c := collector
 			r := region
+			cn := collectorName
 			g.Go(func() error {
 				resources, err := collectWithRetry(c, creds, r, 3)
 				if err != nil {
-					// Silently ignore "service not available in region" errors
+					// Log but continue for "service not available in region" errors
 					if isServiceUnavailableError(err) {
+						logger.LogWarning("Service unavailable for %s in region %s: %v", cn, r, err)
 						return nil
 					}
-					// Log other errors but continue with other regions/collectors
-					fmt.Fprintf(os.Stderr, "Warning: Error collecting from region %s: %v\n", r, err)
+					// Log but continue for throttling errors (we've already retried)
+					if isThrottlingError(err) {
+						logger.LogWarning("Throttling error for %s in region %s: %v", cn, r, err)
+						return nil
+					}
+					// Log other errors to file but continue with other regions/collectors
+					logger.LogWarning("Error collecting %s from region %s: %v", cn, r, err)
 					return nil
 				}
 				for _, resource := range resources {
@@ -114,6 +141,7 @@ func ProcessCollection(creds *types.Credentials, regions []string) types.Resourc
 	}
 
 	if collectedErr != nil {
+		logger.LogError("Fatal error during collection: %v", collectedErr)
 		fmt.Println("Error during collection, aborting:\n", collectedErr)
 		os.Exit(1)
 	}
