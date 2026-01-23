@@ -14,9 +14,10 @@ import (
 )
 
 var (
-	colorRed       = color.New(color.FgRed).SprintFunc()
-	colorGreen     = color.New(color.FgGreen).SprintFunc()
-	colorLightBlue = color.New(color.FgHiCyan).SprintFunc()
+	colorRed    = color.New(color.FgRed).SprintFunc()
+	colorGreen  = color.New(color.FgGreen).SprintFunc()
+	colorBlue   = color.New(color.FgBlue).SprintFunc()
+	colorYellow = color.New(color.FgYellow).SprintFunc()
 )
 
 func PrintStatusWithContext(wg *sync.WaitGroup, ctx context.Context, resources types.Resources) {
@@ -39,11 +40,13 @@ func PrintStatusWithContext(wg *sync.WaitGroup, ctx context.Context, resources t
 func colorizeStatus(state types.ResourceState) string {
 	switch state {
 	case types.Deleted:
-		return colorGreen("Deleted")
+		return colorGreen("Removed")
+	case types.Filtered:
+		return colorBlue("Filtered")
+	case types.Removing, types.PendingRetry:
+		return colorYellow("In-Progress")
 	case types.Failed:
 		return colorRed("Failed")
-	case types.Removing, types.PendingRetry:
-		return colorLightBlue("Removing")
 	default:
 		return state.String()
 	}
@@ -68,7 +71,10 @@ func PrettyPrintStatus(resources types.Resources) {
 	visibleCount := resources.VisibleCount()
 	// Count PendingRetry as "In-Progress" for display
 	inProgress := resources.NumOf(types.Removing) + resources.NumOf(types.PendingRetry)
-	fmt.Printf("\nStatus: %d resources in total. Removed %d, In-Progress %d, Filtered %d, Failed %d\n",
-		visibleCount, resources.NumOf(types.Deleted), inProgress,
-		resources.NumOf(types.Filtered), resources.NumOf(types.Failed))
+	fmt.Printf("\nStatus: %d resources in total. %s %d, %s %d, %s %d, %s %d\n",
+		visibleCount,
+		colorGreen("Removed"), resources.NumOf(types.Deleted),
+		colorYellow("In-Progress"), inProgress,
+		colorBlue("Filtered"), resources.NumOf(types.Filtered),
+		colorRed("Failed"), resources.NumOf(types.Failed))
 }
