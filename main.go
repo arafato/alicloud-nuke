@@ -127,7 +127,7 @@ func executeNuke() {
 	logger := utils.NewScanLogger()
 
 	// Start spinner animation
-	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
+	s := spinner.New(spinner.CharSets[33], 100*time.Millisecond)
 	s.Suffix = fmt.Sprintf(" Scanning %d regions (excluded %d)...", len(regions), len(cfg.Regions.Excludes))
 	s.Start()
 
