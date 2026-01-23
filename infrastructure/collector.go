@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -118,4 +119,14 @@ func ProcessCollection(creds *types.Credentials, regions []string) types.Resourc
 	}
 
 	return allResources
+}
+
+// ListCollector returns an alphabetically sorted list of registered collector names.
+func ListCollectors() []string {
+	var collectorNames []string
+	for name, _ := range collectors {
+		collectorNames = append(collectorNames, name)
+	}
+	slices.Sort(collectorNames)
+	return collectorNames
 }
