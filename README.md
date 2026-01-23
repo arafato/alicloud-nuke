@@ -241,7 +241,6 @@ resource-types:
     - ForwardEntry
     - SnatEntry
     - HaVip
-    - FlowLog
     - VpnGateway
     - VpnConnection
     - CustomerGateway
