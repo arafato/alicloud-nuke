@@ -6,6 +6,7 @@ A command-line tool to delete all resources from an Alibaba Cloud account.
 
 ## Table of Contents
 
+- [Installation](#installation)
 - [Supported Resources](#supported-resources)
 - [Usage](#usage)
   - [Basic Command](#basic-command)
@@ -19,6 +20,42 @@ A command-line tool to delete all resources from an Alibaba Cloud account.
 - [Authentication](#authentication)
   - [Creating an Access Key](#creating-an-access-key)
 - [Resource Deletion Order](#resource-deletion-order)
+
+## Installation
+
+### Homebrew (macOS and Linux)
+
+```bash
+brew tap arafato/tap
+brew install ali-nuke
+```
+
+Or install directly:
+
+```bash
+brew install arafato/tap/ali-nuke
+```
+
+### Download Binary
+
+Download the latest release for your platform from the [Releases page](https://github.com/arafato/alicloud-nuke/releases).
+
+Available binaries:
+- `ali-nuke_*_darwin_arm64.tar.gz` - macOS (Apple Silicon)
+- `ali-nuke_*_darwin_amd64.tar.gz` - macOS (Intel)
+- `ali-nuke_*_linux_arm64.tar.gz` - Linux (ARM64)
+- `ali-nuke_*_linux_amd64.tar.gz` - Linux (x86_64)
+- `ali-nuke_*_windows_amd64.zip` - Windows (x86_64)
+
+### Build from Source
+
+Requires Go 1.24 or later:
+
+```bash
+git clone https://github.com/arafato/alicloud-nuke.git
+cd alicloud-nuke
+go build -o ali-nuke .
+```
 
 ## Supported Resources
 
