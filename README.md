@@ -1,8 +1,23 @@
-# ali-nuke
+<p align="center">
+  <img src="https://img.shields.io/badge/ali--nuke-FF6A00?style=for-the-badge&logo=alibabacloud&logoColor=white" alt="ali-nuke" />
+</p>
 
-A command-line tool to delete all resources from an Alibaba Cloud account.
+<h1 align="center">ali-nuke</h1>
+<p align="center"><strong>Safely delete all resources from an Alibaba Cloud account</strong></p>
+
+<p align="center">
+  <a href="https://github.com/arafato/alicloud-nuke/blob/main/LICENSE"><img src="https://img.shields.io/github/license/arafato/alicloud-nuke.svg" alt="license" /></a>
+  <a href="https://github.com/arafato/alicloud-nuke/releases"><img src="https://img.shields.io/github/release/arafato/alicloud-nuke.svg" alt="release" /></a>
+  <a href="https://goreportcard.com/report/github.com/arafato/alicloud-nuke"><img src="https://goreportcard.com/badge/github.com/arafato/alicloud-nuke" alt="Go Report Card" /></a>
+  <img src="https://img.shields.io/github/downloads/arafato/alicloud-nuke/total" alt="downloads" />
+  <a href="https://github.com/arafato/homebrew-tap"><img src="https://img.shields.io/badge/brew-arafato/tap/ali--nuke-FBB040?logo=homebrew&logoColor=white" alt="homebrew" /></a>
+</p>
+
+---
 
 > **WARNING:** This tool is highly destructive and irreversible. It cannot distinguish between production and non-production resources. Do not run this on any account where you cannot afford to lose all resources. Always back up critical data and configurations before execution.
+
+---
 
 ## Table of Contents
 
